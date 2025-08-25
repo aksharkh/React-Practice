@@ -9,11 +9,19 @@ function Todo() {
 
     const addTodo = () => {
         if(input.trim() === "") return;
-        setTodos([...todos, input]);
+        setTodos([...todos, { text: input, completed: false }]);
         setInput("");
     };
+
+
     const removeTodo = (index) => {
         setTodos(todos.filter((_, i) => i !== index));
+    };
+
+    const toggleComplete = (index) => {
+        const newTask = [...todos];
+        newTask[index].completed = !newTask[index].completed;
+        setTodos(newTask);
     };
 
   return (
@@ -25,7 +33,7 @@ function Todo() {
       <ul>
         {todos.map((todo, i) => (
             <li key={i}>
-                {todo}
+                <span onClick={()=> toggleComplete(i)}>{todo.text}</span>
                 <button onClick={()=> removeTodo(i)}>remove</button>
             </li>
         ))}
