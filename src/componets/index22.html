@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Canvas Game</title>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid black;
+            background-color: white;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Canvas Game</h1>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <br>
+    <button id="resetBtn">Start Over</button>
+
+    <script>
+        // Getting the canvas from the html page
+        var canvas = document.getElementById('gameCanvas');
+        var context = canvas.getContext('2d');
+        
+        // My button
+        var resetButton = document.getElementById('resetBtn');
+
+        // I'll keep track of my circles and arrows in these lists
+        var circles = [];
+        var arrows = [];
+
+        // --- Settings for the game ---
+        var circle_colors = ['red', 'blue', 'green', 'orange'];
+        var circle_radius = 35;
+        var arrow_speed = 4;
+
+
+        // This function sets up everything at the start or when I reset
+        function setupEverything() {
+            // empty the lists first to start fresh
+            circles = [];
+            arrows = [];
+
+            // loop 4 times to make 4 circles and 4 arrows
+            for (var i = 0; i < 4; i++) {
+                
+                var y_position = 80 * (i + 1);
+
+                // making a circle object with its info
+                circles.push({
+                    x: 100,
+                    y: y_position,
+                    radius: circle_radius,
+                    color: circle_colors[i],
+                    is_hit: false, // to know if the arrow hit it yet
+                });
+
+                // making an arrow object for each circle
+                arrows.push({
+                    x: 700,
+                    y: y_position,
+                    is_moving: false,
+                });
+            }
+        }
+
+
+        // --- Functions for drawing stuff ---
+
+        // this function will draw all my shapes
+        function drawStuff() {
+            // clear the whole screen first
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            // loop through all the circles and draw them
+            for (var i = 0; i < circles.length; i++) {
+                var circle = circles[i];
+                
+                context.beginPath();
+                context.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+                
+                // if the circle got hit, make it gray. if not, use its normal color.
+                if (circle.is_hit) {
+                    context.fillStyle = 'lightgray';
+                } else {
+                    context.fillStyle = circle.color;
+                }
+                
+                context.fill();
+                context.closePath();
+            }
+
+            // now loop through all the arrows and draw them
+            for (var i = 0; i < arrows.length; i++) {
+                var arrow = arrows[i];
+                
+                context.beginPath();
+                context.strokeStyle = 'black';
+                context.lineWidth = 2;
+
+                // The long line (the arrow shaft)
+                context.moveTo(arrow.x, arrow.y);
+                context.lineTo(arrow.x - 60, arrow.y);
+
+                // Now for the arrow head part
+                // This is the vertical line made of two short lines that the long one crosses
+                context.moveTo(arrow.x - 60, arrow.y - 10); // start a bit above the shaft
+                context.lineTo(arrow.x - 60, arrow.y + 10); // go a bit below the shaft
+                
+                context.stroke();
+                context.closePath();
+            }
+        }
+
+
+        // --- This is the main game loop that runs over and over ---
+        function updateGame() {
+            
+            // check every arrow to see if it should be moving
+            for (var i = 0; i < arrows.length; i++) {
+                var arrow = arrows[i];
+                var circle = circles[i];
+
+                if (arrow.is_moving) {
+                    // move the arrow to the left
+                    arrow.x = arrow.x - arrow_speed;
+
+                    // check if the arrow hit the circle
+                    // the arrow tip is at arrow.x - 60
+                    if (arrow.x - 60 < circle.x + circle.radius) {
+                        arrow.is_moving = false; // stop it
+                        circle.is_hit = true;    // mark the circle as hit
+                    }
+                }
+            }
+
+            // after updating things, draw everything again
+            drawStuff();
+
+            // this tells the browser to run this function again for the next frame
+            requestAnimationFrame(updateGame);
+        }
+
+        
+        // --- Clicking stuff ---
+
+        // This runs when someone clicks on the canvas
+        canvas.addEventListener('click', function(event) {
+            var rect = canvas.getBoundingClientRect();
+            var mouseX = event.clientX - rect.left;
+            var mouseY = event.clientY - rect.top;
+
+            // check if the click was inside any of the circles
+            for (var i = 0; i < circles.length; i++) {
+                var circle = circles[i];
+                
+                // using some math to find the distance between the click and the circle's center
+                var dx = mouseX - circle.x;
+                var dy = mouseY - circle.y;
+                var distance = Math.sqrt(dx * dx + dy * dy);
+
+                // if the distance is smaller than the radius, we clicked inside!
+                if (distance < circle.radius) {
+                    // tell the matching arrow to start moving
+                    arrows[i].is_moving = true;
+                }
+            }
+        });
+
+        // make the reset button work
+        resetButton.addEventListener('click', function() {
+            setupEverything();
+        });
+
+
+        // --- Start the game ---
+        setupEverything(); // set up the circles and arrows
+        updateGame();      // start the animation loop
+
+    </script>
+
+</body>
+</html>

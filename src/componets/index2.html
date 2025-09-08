@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubbles & Arrows App</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            color: #1c1e21;
+        }
+        canvas {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            margin-top: 20px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Interactive Canvas</h1>
+    <canvas id="appCanvas" width="800" height="400"></canvas>
+    <button id="resetButton">Reset Application</button>
+
+    <script>
+        // --- Core Setup ---
+        const canvas = document.getElementById('appCanvas');
+        const ctx = canvas.getContext('2d');
+        const resetButton = document.getElementById('resetButton');
+
+        // --- Configuration & State Management ---
+
+        // We'll store our shapes in arrays of objects. This is a clean way to manage the state of each element.
+        let circles = [];
+        let arrows = [];
+
+        // A configuration object to easily tweak the game's parameters without digging through the code.
+        const config = {
+            circleCount: 4,
+            circleRadius: 35,
+            circleColors: ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'],
+            hitColor: '#95a5a6', // The color a circle turns after being hit
+            arrowSpeed: 5,
+            arrowSize: 10, // The size of the arrowhead
+        };
+
+        /**
+         * Initializes or resets the state of all circles and arrows.
+         * This function is the single source of truth for the starting positions.
+         */
+        function initializeState() {
+            circles = [];
+            arrows = [];
+
+            const canvasHeight = canvas.height;
+            const verticalPadding = (canvasHeight / (config.circleCount + 1));
+
+            for (let i = 0; i < config.circleCount; i++) {
+                const yPos = verticalPadding * (i + 1);
+
+                // Setup each circle's properties
+                circles.push({
+                    x: 100,
+                    y: yPos,
+                    radius: config.circleRadius,
+                    color: config.circleColors[i],
+                    isHit: false,
+                });
+
+                // Setup each corresponding arrow's properties
+                arrows.push({
+                    x: 700,
+                    y: yPos,
+                    isMoving: false,
+                    targetIndex: i // Link the arrow to its circle
+                });
+            }
+        }
+
+        // --- Drawing Functions ---
+
+        /**
+         * Draws a single circle on the canvas based on its object properties.
+         * @param {object} circle - The circle object to draw.
+         */
+        function drawCircle(circle) {
+            ctx.beginPath();
+            ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+            // Decide the fill color based on whether it's been hit or not
+            ctx.fillStyle = circle.isHit ? config.hitColor : circle.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        /**
+         * Draws a single arrow on the canvas.
+         * @param {object} arrow - The arrow object to draw.
+         */
+        function drawArrow(arrow) {
+            ctx.beginPath();
+            ctx.moveTo(arrow.x, arrow.y);
+            ctx.lineTo(arrow.x - 50, arrow.y); // The shaft of the arrow
+            // Drawing the arrowhead
+            ctx.moveTo(arrow.x - 50, arrow.y);
+            ctx.lineTo(arrow.x - 50 + config.arrowSize, arrow.y - config.arrowSize);
+            ctx.moveTo(arrow.x - 50, arrow.y);
+            ctx.lineTo(arrow.x - 50 + config.arrowSize, arrow.y + config.arrowSize);
+            ctx.strokeStyle = '#34495e';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        /**
+         * Clears and redraws the entire scene. Called on every frame.
+         */
+        function drawScene() {
+            // Clear the entire canvas before drawing the next frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // It's good practice to draw all elements of one type, then the next.
+            circles.forEach(drawCircle);
+            arrows.forEach(drawArrow);
+        }
+
+        // --- Animation & Interaction Logic ---
+
+        /**
+         * This is the main animation loop. It updates the state and redraws the scene.
+         */
+        function gameLoop() {
+            arrows.forEach((arrow) => {
+                if (arrow.isMoving) {
+                    const targetCircle = circles[arrow.targetIndex];
+                    
+                    // Move the arrow to the left
+                    arrow.x -= config.arrowSpeed;
+
+                    // Collision detection: Check if the arrow's tip has reached the circle's edge.
+                    if (arrow.x - 50 <= targetCircle.x + targetCircle.radius) {
+                        arrow.isMoving = false; // Stop the movement
+                        targetCircle.isHit = true; // Mark the circle as hit
+                    }
+                }
+            });
+
+            drawScene(); // Redraw everything with updated positions/colors
+            
+            // requestAnimationFrame is the standard way to do browser animations smoothly.
+            requestAnimationFrame(gameLoop);
+        }
+
+        /**
+         * Handles click events on the canvas to determine if a circle was clicked.
+         * @param {MouseEvent} event - The click event from the browser.
+         */
+        function handleCanvasClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            circles.forEach((circle, index) => {
+                // Using the distance formula to check if the click is inside the circle
+                const distance = Math.sqrt(Math.pow(mouseX - circle.x, 2) + Math.pow(mouseY - circle.y, 2));
+                
+                if (distance < circle.radius && !circle.isHit) {
+                    // If we clicked inside a circle that hasn't been hit yet, start its arrow moving.
+                    arrows[index].isMoving = true;
+                }
+            });
+        }
+
+        // --- Event Listeners & Initialization ---
+        canvas.addEventListener('click', handleCanvasClick);
+        resetButton.addEventListener('click', initializeState);
+
+        // Kick things off
+        initializeState();
+        gameLoop(); // Start the animation loop
+
+    </script>
+
+</body>
+</html>

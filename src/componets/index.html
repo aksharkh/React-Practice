@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>My Canvas Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid black;
+            background-color: #ffffff;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Drawing Game</h1>
+
+    <p>Click on a circle to shoot the arrow!</p>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+
+    <br>
+
+
+    <button id="resetBtn">Reset</button>
+
+    <script>
+
+
+        var canvas = document.getElementById('gameCanvas');
+        var context = canvas.getContext('2d');
+        var resetButton = document.getElementById('resetBtn');
+        var circles = [];
+        var arrows = [];
+        var numberOfCircles = 4;
+        var circleSize = 35;
+        var circleColors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'];
+        var speed = 5;
+
+
+
+
+        function setupGame() {
+
+            circles = [];
+            arrows = [];
+
+
+            for (var i = 0; i < numberOfCircles; i++) {
+                var y_position = 80 * (i + 1);
+
+                circles.push({
+                    x: 100,
+                    y: y_position,
+                    radius: circleSize,
+                    color: circleColors[i],
+                    isHit: false,
+                });
+                
+                arrows.push({
+                    x: 700,
+                    y: y_position,
+                    isMoving: false,
+                    targetCircleIndex: i
+                });
+            }
+        };
+
+
+
+
+        function drawEverything() {
+
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+
+            for (var i = 0; i < circles.length; i++) {
+
+                var circle = circles[i];
+
+                context.beginPath();
+                context.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+
+
+                if (circle.isHit) {
+                    context.fillStyle = '#95a5a6';
+                } else {
+                    context.fillStyle = circle.color;
+                };
+
+
+                context.fill();
+                context.closePath();
+            };
+
+
+
+            for (var i = 0; i < arrows.length; i++) {
+
+                var arrow = arrows[i];
+
+
+                context.beginPath();
+                context.moveTo(arrow.x, arrow.y);
+                context.lineTo(arrow.x - 50, arrow.y);
+                context.moveTo(arrow.x - 50, arrow.y);
+                context.lineTo(arrow.x - 40, arrow.y - 10);
+                context.moveTo(arrow.x - 50, arrow.y);
+                context.lineTo(arrow.x - 40, arrow.y + 10);
+                context.strokeStyle = '#34495e';
+                context.lineWidth = 3;
+                context.stroke();
+                context.closePath();
+            };
+
+
+        };
+
+
+
+
+
+
+        function update() {
+
+            for(var i = 0; i < arrows.length; i++){
+                var arrow = arrows[i];
+
+
+                if (arrow.isMoving) {
+
+                    var targetCircle = circles[arrow.targetCircleIndex];
+                    arrow.x = arrow.x - speed;
+
+
+                    if (arrow.x - 50 < targetCircle.x + targetCircle.radius) {
+                        arrow.isMoving = false;
+                        targetCircle.isHit = true;
+                    };
+                };
+            };
+
+
+
+            drawEverything();
+            requestAnimationFrame(update);
+        };
+
+
+
+
+
+        function onCanvasClick(event) {
+            var rect = canvas.getBoundingClientRect();
+            var mouseX = event.clientX - rect.left;
+            var mouseY = event.clientY - rect.top;
+
+
+            for (var i = 0; i < circles.length; i++) {
+
+                var circle = circles[i];
+                var distance = Math.sqrt( (mouseX - circle.x)*(mouseX - circle.x) + (mouseY - circle.y)*(mouseY - circle.y) );
+
+
+                if (distance < circle.radius && !circle.isHit) {
+                    arrows[i].isMoving = true;
+                };
+            };
+
+
+        };
+
+
+
+
+
+        canvas.addEventListener('click', onCanvasClick);
+        resetButton.addEventListener('click', setupGame);
+
+
+        setupGame();
+        update();
+
+
+
+    </script>
+
+</body>
+</html>

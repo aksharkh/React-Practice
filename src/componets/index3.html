@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Bubbles App - Dev (Canvas)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: #f7f7fb;
+      color: #222;
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      padding: 28px;
+    }
+
+    .wrap {
+      width: 940px;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    p.lead {
+      margin: 0 0 14px 0;
+      color: #444;
+      font-size: 13px;
+    }
+
+    #controls {
+      margin: 10px 0 18px 0;
+    }
+
+    button {
+      border: none;
+      background: #2b88ff;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    canvas {
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      border: 1px solid #e3e7ee;
+      border-radius: 8px;
+      display: block;
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      color: #666;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Bubbles App — Canvas</h1>
+    <p class="lead">Click any circle on the left and watch its corresponding arrow on the right fly in and hit it. Hit changes the circle's color. Press Reset to restore initial state.</p>
+
+    <div id="controls">
+      <button id="resetBtn">Reset</button>
+    </div>
+
+    <canvas id="stage" width="900" height="420"></canvas>
+
+    <div class="footer-note">
+      Implemented in plain JavaScript &amp; HTML5 canvas — no external libraries.
+    </div>
+  </div>
+
+  <script>
+    /* ------------------------------
+       Simple "human-feel" implementation
+       - Single canvas
+       - 4 circles on left
+       - 4 arrows on right
+       - clicking a circle triggers the arrow to move and hit it
+       - when hit, circle changes color
+       - reset resets everything
+       ------------------------------ */
+
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+
+    // Canvas layout
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Circle configuration
+    const circles = [];
+    const initialColors = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#845EC2'];
+    const hitColors = ['#D64545', '#2CA89A', '#D4B21D', '#5B3CA6']; // colors after hit
+    const circleX = 120;             // fixed x for circles (left side)
+    const circleRadius = 36;
+    const topMargin = 70;
+    const verticalSpacing = 80;
+
+    // Arrow configuration
+    const arrows = [];
+    const arrowTipStartX = W - 120;  // tip of arrow starts near the right edge
+    const arrowShaftLen = 60;        // how long the shaft is (to the right of the tip)
+    const arrowHeadSize = 12;        // size of triangular head
+    const arrowSpeed = 6.5;          // pixels per frame when moving
+
+    // State init - create circle & arrow objects
+    function initState() {
+      circles.length = 0;
+      arrows.length = 0;
+
+      for (let i = 0; i < 4; i++) {
+        const cy = topMargin + i * verticalSpacing;
+
+        // Circle object
+        circles.push({
+          id: i,
+          x: circleX,
+          y: cy,
+          r: circleRadius,
+          color: initialColors[i],
+          originalColor: initialColors[i],
+          hitColor: hitColors[i],
+          hit: false
+        });
+
+        // Arrow object, pointing left; tipX defines the leftmost point of the arrow
+        arrows.push({
+          id: i,
+          tipX: arrowTipStartX,
+          y: cy,
+          active: false,   // whether it's currently moving
+          hit: false,      // whether it already hit its target
+          baseTipX: arrowTipStartX // to reset easily
+        });
+      }
+    }
+
+    // Draw a circle (bubble)
+    function drawCircle(c) {
+      // subtle stroke + fill, make it look a bit crafted
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+      ctx.fillStyle = c.color;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.stroke();
+      ctx.closePath();
+    }
+
+    // Draw an arrow pointing left. tipX is the leftmost x of the arrow head.
+    function drawArrow(a) {
+      const tipX = a.tipX;
+      const tipY = a.y;
+      const shaftRight = tipX + arrowShaftLen;
+
+      ctx.save();
+      ctx.lineWidth = 1;
+
+      // shaft
+      ctx.beginPath();
+      ctx.rect(tipX + arrowHeadSize, tipY - 4, arrowShaftLen - arrowHeadSize, 8);
+      ctx.fillStyle = '#333';
+      ctx.globalAlpha = a.hit ? 0.25 : 0.9; // once hit make arrow fade a bit
+      ctx.fill();
+      ctx.closePath();
+
+      // head (triangle)
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX + arrowHeadSize, tipY - arrowHeadSize * 0.6);
+      ctx.lineTo(tipX + arrowHeadSize, tipY + arrowHeadSize * 0.6);
+      ctx.closePath();
+      ctx.fillStyle = '#111';
+      ctx.fill();
+
+      // slight highlight on shaft
+      ctx.globalAlpha = 0.08;
+      ctx.fillRect(tipX + arrowHeadSize + 8, tipY - 2, Math.max(0, arrowShaftLen - arrowHeadSize - 16), 4);
+
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // Clear & draw the whole scene
+    function draw() {
+      // clear
+      ctx.clearRect(0, 0, W, H);
+
+      // draw left-side label line (optional aesthetic)
+      ctx.beginPath();
+      ctx.moveTo(220, 20);
+      ctx.lineTo(220, H - 20);
+      ctx.strokeStyle = 'rgba(0,0,0,0.035)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.closePath();
+
+      // Draw circles
+      for (const c of circles) {
+        drawCircle(c);
+      }
+
+      // Draw arrows
+      for (const a of arrows) {
+        drawArrow(a);
+      }
+    }
+
+    // Animation loop (moves active arrows)
+    function update() {
+      let needsRedraw = false;
+
+      for (let i = 0; i < arrows.length; i++) {
+        const a = arrows[i];
+        const c = circles[i];
+
+        if (a.active && !a.hit) {
+          // Move arrow tip leftwards
+          a.tipX -= arrowSpeed;
+          needsRedraw = true;
+
+          // Collision: when arrow tip reaches circle's right edge (x + r)
+          if (a.tipX <= c.x + c.r) {
+            // The arrow hits the circle
+            a.hit = true;
+            a.active = false;
+            c.hit = true;
+            c.color = c.hitColor; // change color on hit
+            needsRedraw = true;
+          }
+        }
+      }
+
+      if (needsRedraw) {
+        draw();
+      }
+
+      // always request next frame so motion & future interactions stay smooth
+      requestAnimationFrame(update);
+    }
+
+    // Determine whether a mouse coordinate is inside a circle
+    function isInsideCircle(mx, my, circle) {
+      const dx = mx - circle.x;
+      const dy = my - circle.y;
+      return (dx * dx + dy * dy) <= (circle.r * circle.r);
+    }
+
+    // Canvas click handler
+    canvas.addEventListener('click', function (ev) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = ev.clientX - rect.left;
+      const my = ev.clientY - rect.top;
+
+      // find if any circle contains this point
+      for (let i = 0; i < circles.length; i++) {
+        const c = circles[i];
+        const a = arrows[i];
+
+        if (isInsideCircle(mx, my, c)) {
+          // If the circle already hit, do nothing. If its arrow is already moving, also ignore.
+          if (c.hit || a.active || a.hit) {
+            // nothing
+            return;
+          }
+
+          // Activate arrow movement for this index
+          a.active = true;
+          // small visual tweak: ensure the arrow's y is synced (in case resize later)
+          a.y = c.y;
+          a.tipX = Math.max(a.tipX, arrowTipStartX); // if someone hit reset weirdly, sane clamp
+          draw();
+          return;
+        }
+      }
+    });
+
+    // Reset button
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      // restore circles and arrows to initial status
+      for (let i = 0; i < circles.length; i++) {
+        circles[i].color = circles[i].originalColor;
+        circles[i].hit = false;
+      }
+
+      for (let j = 0; j < arrows.length; j++) {
+        arrows[j].tipX = arrows[j].baseTipX;
+        arrows[j].active = false;
+        arrows[j].hit = false;
+      }
+
+      draw();
+    });
+
+    // Kick things off
+    initState();
+    draw();
+    update(); // starts RAF loop
+
+    // Optional: gracefully handle window resize by keeping canvas size fixed for the assignment.
+    // If you want responsive behavior, you can add event listeners here to recalc positions.
+  </script>
+</body>
+</html>
